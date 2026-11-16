@@ -18,7 +18,7 @@ import "leaflet.markercluster";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
-import type { HikingTrip, NearbyTrip } from "@/types/trip";
+import type { HikingTrip, NearbyTrip, TripKind } from "@/types/trip";
 import type { LatLon, UserLocation } from "@/types/geo";
 import { formatKm } from "@/lib/trips/format";
 
@@ -45,16 +45,22 @@ const osmAttribution =
 const escapeHtml = (s: string): string =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
 
-function tripIcon(selected: boolean): L.DivIcon {
+function tripIcon(selected: boolean, kind: TripKind = "route"): L.DivIcon {
   const size = selected ? 40 : 32;
+  const fill = selected ? "#c2410c" : kind === "summit" ? "#184c6b" : "#245033";
+  // Summits use a triangle-topped glyph; routes/trails a hiker-mountain pin. Shape differs, not only colour.
+  const glyph =
+    kind === "summit"
+      ? '<path d="M16 7.5 23 19H9z" fill="#fff"/>'
+      : '<path d="m9.5 18 4.5-7.5 2.8 4.4 1.7-2.3 4 5.4z" fill="#fff"/>';
   return L.divIcon({
     className: "turnaer-marker",
     iconSize: [size, size],
     iconAnchor: [size / 2, size],
     popupAnchor: [0, -size + 4],
     html: `<svg viewBox="0 0 32 32" width="${size}" height="${size}" aria-hidden="true">
-      <path d="M16 31s-11-9.6-11-18a11 11 0 0 1 22 0c0 8.4-11 18-11 18z" fill="${selected ? "#c2410c" : "#245033"}" stroke="#fff" stroke-width="2"/>
-      <path d="m9.5 18 4.5-7.5 2.8 4.4 1.7-2.3 4 5.4z" fill="#fff"/>
+      <path d="M16 31s-11-9.6-11-18a11 11 0 0 1 22 0c0 8.4-11 18-11 18z" fill="${fill}" stroke="#fff" stroke-width="2"/>
+      ${glyph}
     </svg>`,
   });
 }
@@ -230,14 +236,15 @@ export default function MapView(props: MapViewProps) {
     const markers = trips.map((trip) => {
       const selected = trip.id === selectedId;
       const marker = L.marker([trip.latitude, trip.longitude], {
-        icon: tripIcon(selected),
+        icon: tripIcon(selected, trip.kind),
         title: trip.name,
         alt: trip.name,
         riseOnHover: true,
         zIndexOffset: selected ? 500 : 0,
       });
       const popup = L.DomUtil.create("div");
-      popup.innerHTML = `<p style="margin:0;font-weight:700;font-size:15px">${escapeHtml(trip.name)}</p>${
+      const kindText = trip.kind === "summit" ? "Summit" : trip.kind === "trail" ? "Trail" : "Route";
+      popup.innerHTML = `<p style="margin:0 0 2px;font-size:12px;font-weight:600;color:#4a504d">${kindText}</p><p style="margin:0;font-weight:700;font-size:15px">${escapeHtml(trip.name)}</p>${
         trip.distanceFromUserKm != null
           ? `<p style="margin:2px 0 8px;color:#4a504d">${formatKm(trip.distanceFromUserKm)} from you</p>`
           : '<p style="margin:2px 0 8px"></p>'
@@ -279,7 +286,7 @@ export default function MapView(props: MapViewProps) {
     } else {
       map.setView([selectedTrip.latitude, selectedTrip.longitude], Math.max(map.getZoom(), 12));
       L.marker([selectedTrip.latitude, selectedTrip.longitude], {
-        icon: tripIcon(true),
+        icon: tripIcon(true, selectedTrip.kind),
         title: selectedTrip.name,
         alt: selectedTrip.name,
         keyboard: false,

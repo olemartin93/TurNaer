@@ -8,7 +8,10 @@ It runs entirely in the browser: no backend, no database, no API keys, no analyt
 
 - **Find trips near me**: browser geolocation, requested only when you press the button. Fallbacks: place/address search (Kartverket) or picking a point on the map.
 - **Interactive map** (Leaflet): Kartverket topographic map (default), grey topo, OpenStreetMap, and an optional Waymarked Trails overlay. Clustered trip markers, user location, search radius, a "locate me" control, the selected route with its trailhead, and keyboard support.
-- **Nearby trips**: hiking route relations from OpenStreetMap (via Overpass), sorted by approximate straight-line (Haversine) distance. Radius 5/10/25/50/100 km (default 25).
+- **Nearby trips** from OpenStreetMap (via Overpass), sorted by approximate straight-line (Haversine) distance. Radius 5/10/25/50/100 km (default 25). Three kinds:
+  - **Routes**: waymarked hiking route relations.
+  - **Trails**: named paths. Segments with the same name that touch are merged into one trip. Most Norwegian hiking paths are mapped this way rather than as route relations.
+  - **Summits**: named peaks as hiking destinations. These have no route data.
 - **Trip cards**: distance, difficulty, duration, elevation gain, current weather, source and a **View trip** link that opens in a new tab.
 - **Trip detail**: route on the map, trip facts, an **elevation profile** sampled from Kartverket's terrain model, highest and lowest point, ascent, a MET Norway forecast and a weather-condition reading.
 - **Filters** (difficulty, duration, elevation gain, favourites) and **weather-aware ranking**.
@@ -26,7 +29,7 @@ Values TurNær computes itself are marked with **≈**: route length from the ro
 | Kartverket – Høydedata | Elevation profiles (≤ 50 points per request) | `https://ws.geonorge.no/hoydedata/v1/punkt?koordsys=4258&punkter=[[lon,lat],…]` | CC BY 4.0 |
 | Kartverket – WMTS cache | Topographic base maps | `https://cache.kartverket.no/v1/wmts/1.0.0/{topo,topograatone}/default/webmercator/{z}/{y}/{x}.png` | CC BY 4.0 |
 | MET Norway – Locationforecast 2.0 | Weather | `https://api.met.no/weatherapi/locationforecast/2.0/complete` | CC BY 4.0 / NLOD |
-| OpenStreetMap via Overpass | Hiking routes and geometry | `https://overpass-api.de/api/interpreter` | ODbL |
+| OpenStreetMap via Overpass | Hiking routes, trails, summits and their geometry | `https://overpass-api.de/api/interpreter`, falling back to `overpass.private.coffee` and `overpass.kumi.systems` | ODbL |
 | OpenStreetMap tiles | Alternative base map | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | ODbL; tile usage policy |
 | Waymarked Trails | Hiking-trail overlay | `https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png` | CC BY-SA |
 
@@ -35,7 +38,7 @@ Attribution is shown on the map and on the **About & data** page. TurNær is not
 ### API etiquette
 
 - **MET Norway**: browsers can't set a custom `User-Agent` (it is a forbidden header), so requests from the static site are identified by the browser's `Origin`/`Referer`. Coordinates are rounded to 3 decimals. The `Expires` header is respected, and responses are cached in `localStorage` and de-duplicated in flight. Weather is fetched only for the 12 closest trips and the selected trip.
-- **Overpass**: one small bounding-box query per search, with the query area rounded so nearby searches share the cache. Results are cached for 12 hours. Route geometry is fetched only for the selected trip.
+- **Overpass**: one bounding-box query per search, with the query area rounded so nearby searches share the cache. Results are cached for 12 hours; empty results only for 10 minutes. If an instance is busy, the next one is tried. Route geometry is fetched only for the selected trip.
 - **Kartverket**: the elevation API takes at most 50 points per request, so profiles use 100 samples split into 2 requests. Profiles are cached for 30 days.
 
 ### Hiking-trip sources: status

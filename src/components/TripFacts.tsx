@@ -1,4 +1,4 @@
-import type { Difficulty, HikingTrip } from "@/types/trip";
+import type { Difficulty, HikingTrip, TripKind } from "@/types/trip";
 import { difficultyLabel, formatDuration, formatKm, formatMetres } from "@/lib/trips/format";
 import { ClockIcon, MountainIcon, RouteIcon } from "./Icons";
 
@@ -24,8 +24,23 @@ export function DifficultyBadge({ difficulty }: { difficulty: Difficulty }) {
   );
 }
 
+export const kindLabel: Record<TripKind, string> = { route: "Route", trail: "Trail", summit: "Summit" };
+
+const kindIcon: Record<TripKind, string> = { route: "⟿", trail: "⋯", summit: "▲" };
+
+export function KindBadge({ kind }: { kind: TripKind }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-birch-200 px-2 py-0.5 text-xs font-semibold text-granite-800">
+      <span aria-hidden="true">{kindIcon[kind]}</span>
+      {kindLabel[kind]}
+    </span>
+  );
+}
+
 export function TripFacts({ trip, compact = false }: { trip: HikingTrip; compact?: boolean }) {
   const items: { key: string; icon: React.ReactNode; label: string; value: string }[] = [];
+  if (trip.summitElevationM != null)
+    items.push({ key: "ele", icon: <MountainIcon />, label: "Summit height", value: `${formatMetres(trip.summitElevationM)} a.s.l.` });
   if (trip.lengthKm != null)
     items.push({ key: "len", icon: <RouteIcon />, label: "Route length", value: formatKm(trip.lengthKm) });
   if (trip.estimatedTimeMinutes != null)
@@ -45,6 +60,7 @@ export function TripFacts({ trip, compact = false }: { trip: HikingTrip; compact
 
   return (
     <div className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 ${compact ? "text-sm" : ""}`}>
+      <KindBadge kind={trip.kind} />
       {trip.difficulty ? <DifficultyBadge difficulty={trip.difficulty} /> : null}
       {items.map((i) => (
         <span key={i.key} className="inline-flex items-center gap-1 text-granite-700" title={i.label}>
@@ -53,9 +69,7 @@ export function TripFacts({ trip, compact = false }: { trip: HikingTrip; compact
           {i.value}
         </span>
       ))}
-      {!trip.difficulty && items.length === 0 ? (
-        <span className="text-sm text-granite-600">Details on the source page</span>
-      ) : null}
+
     </div>
   );
 }

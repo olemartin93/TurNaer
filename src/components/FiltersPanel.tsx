@@ -3,6 +3,7 @@ import {
   DURATION_BUCKETS,
   ELEVATION_BUCKETS,
   EMPTY_FILTERS,
+  KIND_OPTIONS,
   type TripFilters,
 } from "@/lib/trips/filters";
 import { difficultyLabel } from "@/lib/trips/format";
@@ -31,6 +32,20 @@ function Chip({ checked, onChange, children }: { checked: boolean; onChange: () 
 export function FiltersPanel({ value, onChange }: { value: TripFilters; onChange: (f: TripFilters) => void }) {
   return (
     <div className="space-y-4">
+      <fieldset>
+        <legend className="mb-2 text-sm font-semibold text-granite-800">Type</legend>
+        <div className="flex flex-wrap gap-2">
+          {KIND_OPTIONS.map((k) => (
+            <Chip
+              key={k.id}
+              checked={value.kinds.includes(k.id)}
+              onChange={() => onChange({ ...value, kinds: toggle(value.kinds, k.id) })}
+            >
+              {k.label}
+            </Chip>
+          ))}
+        </div>
+      </fieldset>
       <fieldset>
         <legend className="mb-2 text-sm font-semibold text-granite-800">Difficulty</legend>
         <div className="flex flex-wrap gap-2">

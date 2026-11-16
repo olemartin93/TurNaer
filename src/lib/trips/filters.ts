@@ -1,4 +1,4 @@
-import type { Difficulty, NearbyTrip } from "@/types/trip";
+import type { Difficulty, NearbyTrip, TripKind } from "@/types/trip";
 
 export const RADIUS_OPTIONS = [5, 10, 25, 50, 100] as const;
 export type RadiusKm = (typeof RADIUS_OPTIONS)[number];
@@ -21,7 +21,15 @@ export const ELEVATION_BUCKETS = [
 export type DurationBucket = (typeof DURATION_BUCKETS)[number]["id"];
 export type ElevationBucket = (typeof ELEVATION_BUCKETS)[number]["id"];
 
+export const KIND_OPTIONS: { id: TripKind; label: string }[] = [
+  { id: "route", label: "Routes" },
+  { id: "trail", label: "Trails" },
+  { id: "summit", label: "Summits" },
+];
+
 export type TripFilters = {
+  /** Empty = all kinds. */
+  kinds: TripKind[];
   difficulties: Difficulty[];
   durations: DurationBucket[];
   elevations: ElevationBucket[];
@@ -31,6 +39,7 @@ export type TripFilters = {
 };
 
 export const EMPTY_FILTERS: TripFilters = {
+  kinds: [],
   difficulties: [],
   durations: [],
   elevations: [],
@@ -39,7 +48,7 @@ export const EMPTY_FILTERS: TripFilters = {
 };
 
 export function activeFilterCount(f: TripFilters): number {
-  return f.difficulties.length + f.durations.length + f.elevations.length + (f.favoritesOnly ? 1 : 0);
+  return f.kinds.length + f.difficulties.length + f.durations.length + f.elevations.length + (f.favoritesOnly ? 1 : 0);
 }
 
 function matchBucket<T extends { id: string; min: number; max: number }>(
@@ -56,6 +65,7 @@ function matchBucket<T extends { id: string; min: number; max: number }>(
 export function applyFilters(trips: NearbyTrip[], f: TripFilters, favorites: ReadonlySet<string>): NearbyTrip[] {
   return trips.filter((t) => {
     if (f.favoritesOnly && !favorites.has(t.id)) return false;
+    if (f.kinds.length > 0 && !f.kinds.includes(t.kind)) return false;
     if (f.difficulties.length > 0) {
       if (!t.difficulty) {
         if (!f.includeUnknown) return false;

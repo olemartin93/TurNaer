@@ -37,6 +37,7 @@ function normalise(raw: Partial<HikingTrip>, providerId: string, datasetName: st
     name: raw.name,
     latitude: raw.latitude,
     longitude: raw.longitude,
+    kind: raw.kind === "trail" || raw.kind === "summit" ? raw.kind : "route",
     positionKind: raw.positionKind ?? "start",
     difficulty: raw.difficulty && DIFFICULTIES.has(raw.difficulty) ? raw.difficulty : undefined,
     source,

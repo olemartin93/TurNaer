@@ -34,7 +34,7 @@ const hostsFromEnv = (value, fallback) => {
     return new URL(fallback).hostname;
   }
 };
-const overpassHosts = (process.env.NEXT_PUBLIC_OVERPASS_API_URLS || "https://overpass-api.de/api/interpreter")
+const overpassHosts = (process.env.NEXT_PUBLIC_OVERPASS_API_URLS || "https://overpass-api.de/api/interpreter,https://overpass.private.coffee/api/interpreter,https://overpass.kumi.systems/api/interpreter")
   .split(",")
   .map((u) => hostsFromEnv(u.trim(), "https://overpass-api.de/api/interpreter"));
 const dataHosts = [
