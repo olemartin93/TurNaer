@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+/* Nordic outdoor palette: pine, moss, birch bark, granite, fjord, cloudberry. */
+@theme {
+  --color-pine-50: #eef5f0;
+  --color-pine-100: #d6e8db;
+  --color-pine-200: #aed0b8;
+  --color-pine-500: #3d7a4f;
+  --color-pine-600: #2f6440;
+  --color-pine-700: #245033;
+  --color-pine-800: #1b3d27;
+  --color-pine-900: #12291a;
+  --color-birch-50: #fbfaf6;
+  --color-birch-100: #f5f2ea;
+  --color-birch-200: #e9e3d4;
+  --color-birch-300: #d8cfb9;
+  --color-granite-500: #5d6461;
+  --color-granite-600: #4a504d;
+  --color-granite-700: #363b39;
+  --color-granite-900: #1c1f1e;
+  --color-fjord-50: #ecf4f9;
+  --color-fjord-600: #1f5f86;
+  --color-fjord-700: #184c6b;
+  --color-cloudberry-100: #fdf0de;
+  --color-cloudberry-500: #e08a2b;
+  --color-cloudberry-800: #7a4510;
+  --color-lingon-50: #fdf0ef;
+  --color-lingon-700: #a12a22;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --shadow-card: 0 1px 2px rgb(28 31 30 / 0.06), 0 4px 16px rgb(28 31 30 / 0.06);
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-birch-100 text-granite-900 antialiased;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-fjord-600);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Leaflet tweaks so controls match the app and stay accessible. */
+.leaflet-container {
+  font-family: var(--font-sans);
+  background: var(--color-birch-200);
+}
+.leaflet-container a.leaflet-popup-close-button {
+  width: 32px;
+  height: 32px;
+  font-size: 22px;
+  line-height: 30px;
+}
+.leaflet-bar a,
+.leaflet-control-layers-toggle {
+  width: 40px !important;
+  height: 40px !important;
+  line-height: 40px !important;
+}
+.leaflet-popup-content-wrapper {
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+}
+.leaflet-popup-content {
+  margin: 12px 14px;
+}
+.leaflet-control-attribution {
+  font-size: 11px;
+}
+.turnaer-marker:focus-visible {
+  outline: 3px solid var(--color-fjord-600);
+  outline-offset: 2px;
+  border-radius: 9999px;
+}
+.marker-cluster-small,
+.marker-cluster-medium,
+.marker-cluster-large {
+  background-color: rgb(61 122 79 / 0.35) !important;
+}
+.marker-cluster-small div,
+.marker-cluster-medium div,
+.marker-cluster-large div {
+  background-color: var(--color-pine-700) !important;
+  color: white;
+  font-weight: 700;
+}
