@@ -38,8 +38,8 @@ export const providers: HikingProvider[] = [OsmProvider, StaticTripProvider, Mor
 
 export type NearbyTripsResult = {
   trips: NearbyTrip[];
-  /** Names of providers that failed; the UI shows a gentle notice if all failed. */
-  failedProviders: string[];
+  /** True when a provider (or part of one) failed; the UI shows a gentle notice. */
+  incomplete: boolean;
 };
 
 function dedupe(trips: HikingTrip[]): HikingTrip[] {
@@ -56,26 +56,57 @@ export function withDistance(trip: HikingTrip, from: LatLon | null): NearbyTrip 
   return { ...trip, distanceFromUserKm: from ? calculateDistance(from, trip) : null };
 }
 
-/** Find trips within `radiusKm` of `center`, from all enabled providers, sorted by distance. */
-export async function getNearbyTrips(center: LatLon, radiusKm: number, signal?: AbortSignal): Promise<NearbyTripsResult> {
-  const active = providers.filter((p) => p.isEnabled());
-  const settled = await Promise.allSettled(
-    active.map((p) => p.getNearbyTrips(center.latitude, center.longitude, radiusKm, signal)),
-  );
-  const failedProviders: string[] = [];
-  const all: HikingTrip[] = [];
-  settled.forEach((r, i) => {
-    if (r.status === "fulfilled") all.push(...r.value);
-    else failedProviders.push(active[i]?.name ?? "unknown");
-  });
-  const trips = dedupe(all)
+function rank(all: HikingTrip[], center: LatLon, radiusKm: number): NearbyTrip[] {
+  return dedupe(all)
     .map((t) => withDistance(t, center))
     .filter((t) => (t.distanceFromUserKm ?? Infinity) <= radiusKm)
     .sort((a, b) => (a.distanceFromUserKm ?? 0) - (b.distanceFromUserKm ?? 0));
-  if (trips.length === 0 && failedProviders.length === active.length) {
-    throw new Error("All trip providers failed");
+}
+
+/**
+ * Find trips within `radiusKm` of `center`, from all enabled providers, sorted by distance.
+ * `onPartial` receives the trips found so far while slower providers are still loading.
+ */
+export async function getNearbyTrips(
+  center: LatLon,
+  radiusKm: number,
+  signal?: AbortSignal,
+  onPartial?: (trips: NearbyTrip[]) => void,
+): Promise<NearbyTripsResult> {
+  const active = providers.filter((p) => p.isEnabled());
+  const partial = new Map<string, HikingTrip[]>();
+  const report = () => onPartial?.(rank([...partial.values()].flat(), center, radiusKm));
+
+  const settled = await Promise.allSettled(
+    active.map(async (p) => {
+      const result = await p.getNearbyTrips(center.latitude, center.longitude, radiusKm, {
+        signal,
+        onPartial: (trips) => {
+          partial.set(p.id, trips);
+          report();
+        },
+      });
+      partial.set(p.id, result.trips);
+      if (result.trips.length > 0) report();
+      return result;
+    }),
+  );
+  let incomplete = false;
+  let failed = 0;
+  const all: HikingTrip[] = [];
+  for (const r of settled) {
+    if (r.status === "fulfilled") {
+      all.push(...r.value.trips);
+      incomplete ||= !!r.value.incomplete;
+    } else {
+      failed++;
+      incomplete = true;
+    }
   }
-  return { trips, failedProviders };
+  const trips = rank(all, center, radiusKm);
+  // Nothing found while some source failed: that's an error, not "no trips nearby".
+  if (trips.length === 0 && (failed > 0 || incomplete)) throw new Error("Trip providers failed");
+  return { trips, incomplete };
 }
 
 /** Fetch one trip (with route geometry where the provider supports it). */
