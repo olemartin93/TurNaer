@@ -12,7 +12,7 @@
  * is used as the trip link; otherwise the OSM page for the feature is linked.
  */
 import type { LineString, MultiLineString, Position } from "geojson";
-import type { HikingProvider } from "./provider";
+import type { HikingProvider, NearbyOptions, ProviderResult } from "./provider";
 import type { HikingTrip, TripKind } from "@/types/trip";
 import { runOverpassQuery, type OverpassElement } from "@/services/osm/overpass";
 import { boundingBoxAround, calculateDistance } from "@/lib/geo/distance";
@@ -40,6 +40,8 @@ const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const EMPTY_CACHE_TTL_MS = 10 * 60 * 1000;
 
 type Bounds = NonNullable<OverpassElement["bounds"]>;
+
+const isTrip = (t: HikingTrip | null): t is HikingTrip => t !== null;
 
 const nameOf = (tags: Record<string, string>): string | undefined =>
   tags.name ?? tags["name:nb"] ?? tags["name:nn"] ?? tags["name:no"];
@@ -213,36 +215,70 @@ export class OpenStreetMapProvider implements HikingProvider {
     return [RELATION_PREFIX, TRAIL_PREFIX, SUMMIT_PREFIX].some((p) => tripId.startsWith(p));
   }
 
-  async getNearbyTrips(latitude: number, longitude: number, radiusKm: number, signal?: AbortSignal) {
+  /**
+   * Routes, trails and summits are fetched with three small parallel queries, each
+   * starting on a different Overpass instance. Results are reported as they arrive,
+   * so a slow or busy instance doesn't hold back the whole list.
+   */
+  async getNearbyTrips(
+    latitude: number,
+    longitude: number,
+    radiusKm: number,
+    { signal, onPartial }: NearbyOptions = {},
+  ): Promise<ProviderResult> {
     // Round the query area so nearby searches share the cache (and the Overpass load stays low).
     const lat = Math.round(latitude * 50) / 50;
     const lon = Math.round(longitude * 50) / 50;
-    const cacheKey = `trips:osm:${CACHE_VERSION}:${lat},${lon},${radiusKm}`;
-    const cached = readCache<HikingTrip[]>(cacheKey);
-    if (cached) return cached;
-
     const bb = boundingBoxAround({ latitude: lat, longitude: lon }, radiusKm + 2);
     const bbox = [bb.south, bb.west, bb.north, bb.east].map((n) => n.toFixed(4)).join(",");
-    // Bigger areas get lower per-kind caps to keep responses small.
-    const cap = radiusKm > 50 ? 400 : 800;
-    const query =
-      `[out:json][timeout:45];` +
-      `relation["type"="route"]["route"~"^(hiking|foot)$"]["name"](${bbox});out tags bb ${cap};` +
-      `(way["highway"="path"]["name"](${bbox});way["highway"]["sac_scale"]["name"](${bbox}););out tags bb ${cap * 3};` +
-      `node["natural"="peak"]["name"](${bbox});out body ${cap};`;
-    try {
-      const elements = await runOverpassQuery(query, signal);
-      const relations = elements.filter((e) => e.type === "relation").map(relationToTrip);
-      const summits = elements.filter((e) => e.type === "node").map(summitToTrip);
-      const trails = waysToTrails(elements.filter((e) => e.type === "way"));
-      const trips = [...relations, ...trails, ...summits].filter((t): t is HikingTrip => t !== null);
-      writeCache(cacheKey, trips, trips.length > 0 ? CACHE_TTL_MS : EMPTY_CACHE_TTL_MS);
-      return trips;
-    } catch (error) {
-      const stale = readCache<HikingTrip[]>(cacheKey, { allowExpired: true });
-      if (stale) return stale;
-      throw error;
-    }
+    // Bigger areas get lower caps to keep responses small.
+    const cap = radiusKm > 50 ? 300 : 600;
+
+    const parts: { kind: TripKind; query: string; parse: (els: OverpassElement[]) => HikingTrip[] }[] = [
+      {
+        kind: "route",
+        query: `[out:json][timeout:25];relation["type"="route"]["route"~"^(hiking|foot)$"]["name"](${bbox});out tags bb ${cap};`,
+        parse: (els) => els.filter((e) => e.type === "relation").map(relationToTrip).filter(isTrip),
+      },
+      {
+        kind: "summit",
+        query: `[out:json][timeout:25];node["natural"="peak"]["name"](${bbox});out body ${cap};`,
+        parse: (els) => els.filter((e) => e.type === "node").map(summitToTrip).filter(isTrip),
+      },
+      {
+        kind: "trail",
+        query: `[out:json][timeout:25];(way["highway"="path"]["name"](${bbox});way["sac_scale"]["name"](${bbox}););out tags bb ${cap * 3};`,
+        parse: (els) => waysToTrails(els.filter((e) => e.type === "way")),
+      },
+    ];
+
+    const found: HikingTrip[] = [];
+    let failures = 0;
+    let lastError: unknown;
+    await Promise.all(
+      parts.map(async (part, i) => {
+        const cacheKey = `trips:osm:${CACHE_VERSION}:${part.kind}:${lat},${lon},${radiusKm}`;
+        let trips = readCache<HikingTrip[]>(cacheKey);
+        if (!trips) {
+          try {
+            trips = part.parse(await runOverpassQuery(part.query, { signal, startAt: i }));
+            writeCache(cacheKey, trips, trips.length > 0 ? CACHE_TTL_MS : EMPTY_CACHE_TTL_MS);
+          } catch (error) {
+            if (signal?.aborted) throw error;
+            trips = readCache<HikingTrip[]>(cacheKey, { allowExpired: true });
+            if (!trips) {
+              failures++;
+              lastError = error;
+              return;
+            }
+          }
+        }
+        found.push(...trips);
+        if (!signal?.aborted) onPartial?.([...found]);
+      }),
+    );
+    if (failures === parts.length) throw lastError;
+    return { trips: found, incomplete: failures > 0 };
   }
 
   async getTripById(tripId: string, signal?: AbortSignal): Promise<HikingTrip | null> {
@@ -273,19 +309,19 @@ export class OpenStreetMapProvider implements HikingProvider {
     if (!kind || ids.length === 0 || ids.some((n) => !Number.isInteger(n) || n <= 0)) return null;
 
     if (kind === "route") {
-      const elements = await runOverpassQuery(`[out:json][timeout:30];relation(${ids[0]});out geom;`, signal);
+      const elements = await runOverpassQuery(`[out:json][timeout:25];relation(${ids[0]});out geom;`, { signal });
       const el = elements.find((e) => e.type === "relation");
       const base = el ? relationToTrip(el) : null;
       return base && el ? { ...base, route: toRoute(relationLines(el)) } : null;
     }
     if (kind === "summit") {
-      const elements = await runOverpassQuery(`[out:json][timeout:30];node(${ids[0]});out body;`, signal);
+      const elements = await runOverpassQuery(`[out:json][timeout:25];node(${ids[0]});out body;`, { signal });
       const el = elements.find((e) => e.type === "node");
       return el ? summitToTrip(el) : null;
     }
     const elements = await runOverpassQuery(
-      `[out:json][timeout:30];way(id:${ids.slice(0, MAX_WAYS_PER_TRAIL).join(",")});out geom;`,
-      signal,
+      `[out:json][timeout:25];way(id:${ids.slice(0, MAX_WAYS_PER_TRAIL).join(",")});out geom;`,
+      { signal },
     );
     const ways = elements.filter((e) => e.type === "way");
     const [trail] = waysToTrails(ways);

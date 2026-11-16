@@ -6,7 +6,7 @@
  *
  * File format: { "trips": HikingTrip[] } — see docs in README.md.
  */
-import type { HikingProvider } from "./provider";
+import type { HikingProvider, ProviderResult } from "./provider";
 import type { HikingTrip, TripSource } from "@/types/trip";
 import { withBasePath } from "@/lib/config";
 import { calculateDistance } from "@/lib/geo/distance";
@@ -78,9 +78,9 @@ export class DatasetProvider implements HikingProvider {
     return this.cache;
   }
 
-  async getNearbyTrips(latitude: number, longitude: number, radiusKm: number): Promise<HikingTrip[]> {
+  async getNearbyTrips(latitude: number, longitude: number, radiusKm: number): Promise<ProviderResult> {
     const trips = await this.load();
-    return trips.filter((t) => calculateDistance({ latitude, longitude }, t) <= radiusKm);
+    return { trips: trips.filter((t) => calculateDistance({ latitude, longitude }, t) <= radiusKm) };
   }
 
   async getTripById(tripId: string): Promise<HikingTrip | null> {

@@ -45,7 +45,7 @@ const MapView = dynamic(() => import("./map/MapView"), {
 type TripsState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "ready"; trips: NearbyTrip[]; partial: boolean }
+  | { status: "ready"; trips: NearbyTrip[]; partial: boolean; loadingMore: boolean }
   | { status: "error" };
 
 /** Identifies one search; results for another key are treated as "loading". */
@@ -160,9 +160,14 @@ export function TurNaerApp() {
     if (!location) return;
     const controller = new AbortController();
     const key = searchKey;
-    getNearbyTrips(location, radius, controller.signal)
-      .then(({ trips, failedProviders }) => {
-        setTripsState({ status: "ready", trips, partial: failedProviders.length > 0, key });
+    const onPartial = (trips: NearbyTrip[]) => {
+      if (!controller.signal.aborted && trips.length > 0) {
+        setTripsState({ status: "ready", trips, partial: false, loadingMore: true, key });
+      }
+    };
+    getNearbyTrips(location, radius, controller.signal, onPartial)
+      .then(({ trips, incomplete }) => {
+        setTripsState({ status: "ready", trips, partial: incomplete, loadingMore: false, key });
       })
       .catch(() => {
         if (!controller.signal.aborted) setTripsState({ status: "error", key });
@@ -575,6 +580,7 @@ function TripResults({
           <p className="flex items-center gap-2 text-sm text-granite-700" role="status">
             <Spinner label="Finding trips" /> Finding trips within {radius} km…
           </p>
+          <SlowHint />
           {[0, 1, 2].map((i) => (
             <div key={i} className="h-36 animate-pulse rounded-2xl bg-birch-200 motion-reduce:animate-none" />
           ))}
@@ -652,6 +658,11 @@ function TripResults({
           centre of each route or trail.
         </span>
       </p>
+      {state.status === "ready" && state.loadingMore ? (
+        <p className="flex items-center gap-2 text-sm text-granite-700" role="status">
+          <Spinner label="Loading more trips" /> Loading more trips…
+        </p>
+      ) : null}
       {state.status === "ready" && state.partial ? (
         <Notice tone="warning" title="Some trip sources didn't respond, so the list may be incomplete." />
       ) : null}
@@ -671,4 +682,18 @@ function TripResults({
       ) : null}
     </div>
   );
+}
+
+/** Shown when a search takes a while: public OpenStreetMap servers can be busy. */
+function SlowHint() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setShow(true), 8000);
+    return () => clearTimeout(t);
+  }, []);
+  return show ? (
+    <p className="text-xs text-granite-600">
+      This is taking a while – the public OpenStreetMap servers can be busy. We give up after about a minute.
+    </p>
+  ) : null;
 }
