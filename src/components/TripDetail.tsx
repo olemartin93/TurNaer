@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { TripDetailState } from "@/hooks/useTripDetail";
 import type { WeatherState } from "@/hooks/useWeather";
 import type { HikingTrip } from "@/types/trip";
@@ -8,12 +8,33 @@ import { difficultyLabel, formatDuration, formatKm, formatMetres } from "@/lib/t
 import { assessWeather, conditionText } from "@/lib/weather/assessment";
 import { weatherSymbol, windDirectionLabel } from "@/lib/weather/symbols";
 import { currentWeather } from "@/services/met/locationforecast";
+import { getPointElevation } from "@/services/kartverket/elevation";
 import type { LatLon } from "@/types/geo";
 import { ElevationProfile } from "./ElevationProfile";
 import { ArrowLeftIcon, ExternalIcon, HeartIcon, ShareIcon } from "./Icons";
 import { Notice } from "./Notice";
 import { Spinner } from "./Spinner";
 import { ConditionBadge } from "./WeatherSummary";
+import { KindBadge } from "./TripFacts";
+
+/** Terrain height at a summit from Kartverket's elevation model (independent of the source's `ele` tag). */
+function useSummitTerrain(trip: HikingTrip | null): { tripId: string; elevationM: number | null } | null {
+  const [result, setResult] = useState<{ tripId: string; elevationM: number | null } | null>(null);
+  const summitId = trip?.kind === "summit" ? trip.id : null;
+  const lat = trip?.latitude;
+  const lon = trip?.longitude;
+  useEffect(() => {
+    if (!summitId || lat == null || lon == null) return;
+    const controller = new AbortController();
+    getPointElevation({ latitude: lat, longitude: lon }, controller.signal)
+      .then((s) => setResult({ tripId: summitId, elevationM: s.elevationM }))
+      .catch(() => {
+        if (!controller.signal.aborted) setResult({ tripId: summitId, elevationM: null });
+      });
+    return () => controller.abort();
+  }, [summitId, lat, lon]);
+  return result && result.tripId === summitId ? result : null;
+}
 
 type Props = {
   detail: TripDetailState;
@@ -145,6 +166,7 @@ function WeatherPanel({ state }: { state: WeatherState | undefined }) {
 export function TripDetail({ detail, weather, userLocation, isFavorite, onToggleFavorite, onBack, onHoverPoint }: Props) {
   const [shareMessage, setShareMessage] = useState("");
   const trip = detail.trip;
+  const summitTerrain = useSummitTerrain(trip);
 
   if (detail.status === "error" || (!trip && detail.status !== "loading")) {
     return (
@@ -216,6 +238,7 @@ export function TripDetail({ detail, weather, userLocation, isFavorite, onToggle
       {shareMessage ? <p className="text-sm text-pine-700">{shareMessage}</p> : null}
 
       <header className="space-y-1">
+        <KindBadge kind={trip.kind} />
         <h2 id="trip-title" className="text-2xl font-extrabold tracking-tight text-granite-900">
           {trip.name}
         </h2>
@@ -223,7 +246,9 @@ export function TripDetail({ detail, weather, userLocation, isFavorite, onToggle
           <p className="text-granite-700">
             <span className="font-semibold">{formatKm(distFromUser)}</span> from you{" "}
             <span className="text-sm text-granite-600">
-              (straight line to the {detail.start ? "nearest trailhead" : "route centre"}, not walking distance)
+              (straight line to the{" "}
+              {trip.kind === "summit" ? "summit" : detail.start ? "nearest end of the route" : "route centre"}, not walking
+              distance)
             </span>
           </p>
         ) : null}
@@ -266,6 +291,17 @@ export function TripDetail({ detail, weather, userLocation, isFavorite, onToggle
         <h3 id="facts-h" className="mb-1 font-bold">
           Trip facts
         </h3>
+        {trip.kind === "summit" ? (
+          <dl>
+            <Row
+              label="Summit height"
+              value={trip.summitElevationM != null ? `${formatMetres(trip.summitElevationM)} a.s.l.` : unknown}
+              note={trip.summitElevationM != null ? "From OpenStreetMap" : undefined}
+            />
+            <Row label="Route to the top" value={unknown} note="Check the source or the marked-trails map layer" />
+            <Row label="Source" value={trip.sourceLabel} />
+          </dl>
+        ) : (
         <dl>
           <Row
             label="Route length"
@@ -296,13 +332,29 @@ export function TripDetail({ detail, weather, userLocation, isFavorite, onToggle
           {trip.network ? <Row label="Network" value={networkLabel(trip.network)} /> : null}
           <Row label="Source" value={trip.sourceLabel} note={trip.dataProvider !== trip.sourceLabel ? `Data: ${trip.dataProvider}` : undefined} />
         </dl>
+        )}
       </section>
 
       <section aria-labelledby="terrain-h" className="rounded-2xl bg-white p-4 shadow-card ring-1 ring-birch-200">
         <h3 id="terrain-h" className="mb-2 font-bold">
           Terrain
         </h3>
-        {detail.status === "loading" || detail.profile.status === "loading" ? (
+        {trip.kind === "summit" ? (
+          summitTerrain ? (
+            summitTerrain.elevationM != null ? (
+              <p className="text-granite-800">
+                Terrain height at the summit: <strong>{formatMetres(summitTerrain.elevationM)}</strong>
+                <span className="block text-xs text-granite-600">From Kartverket&apos;s elevation model.</span>
+              </p>
+            ) : (
+              <p className="text-sm text-granite-600">Elevation data is unavailable for this location.</p>
+            )
+          ) : (
+            <p className="flex items-center gap-2 text-sm text-granite-600">
+              <Spinner label="Loading terrain" /> Loading terrain data…
+            </p>
+          )
+        ) : detail.status === "loading" || detail.profile.status === "loading" ? (
           <p className="flex items-center gap-2 text-sm text-granite-600">
             <Spinner label="Loading terrain" /> Loading route and terrain data…
           </p>

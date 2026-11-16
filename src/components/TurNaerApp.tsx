@@ -648,7 +648,8 @@ function TripResults({
           </>
         )}
         <span className="block text-xs text-granite-600">
-          Distances are approximate straight-line distances from your starting point to each route&apos;s centre.
+          Distances are approximate straight-line distances from your starting point to each summit, or to the
+          centre of each route or trail.
         </span>
       </p>
       {state.status === "ready" && state.partial ? (

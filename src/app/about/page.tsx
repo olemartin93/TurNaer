@@ -29,14 +29,14 @@ const sources: Source[] = [
   {
     name: "OpenStreetMap contributors",
     url: "https://www.openstreetmap.org/copyright",
-    use: "Hiking route relations and their geometry (queried through the Overpass API), and an alternative base map.",
+    use: "Hiking routes, named trails and summits with their geometry (queried through the Overpass API), and an alternative base map.",
     licence: "ODbL",
     licenceUrl: "https://opendatacommons.org/licenses/odbl/",
   },
   {
     name: "Overpass API",
     url: "https://overpass-api.de/",
-    use: "Public query service used to read hiking routes from OpenStreetMap. Requests are kept small and cached.",
+    use: "Public query services (overpass-api.de, with overpass.private.coffee and overpass.kumi.systems as fallbacks) used to read hiking data from OpenStreetMap. Requests are kept small and cached.",
     licence: "Fair-use policy",
     licenceUrl: "https://wiki.openstreetmap.org/wiki/Overpass_API",
   },

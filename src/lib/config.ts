@@ -26,7 +26,10 @@ export const config = {
     ),
   },
   osm: {
-    overpassUrls: (process.env.NEXT_PUBLIC_OVERPASS_API_URLS || "https://overpass-api.de/api/interpreter")
+    overpassUrls: (
+      process.env.NEXT_PUBLIC_OVERPASS_API_URLS ||
+      "https://overpass-api.de/api/interpreter,https://overpass.private.coffee/api/interpreter,https://overpass.kumi.systems/api/interpreter"
+    )
       .split(",")
       .map((u) => u.trim())
       .filter(Boolean),

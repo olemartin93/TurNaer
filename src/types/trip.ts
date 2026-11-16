@@ -5,6 +5,13 @@ export type Difficulty = "easy" | "moderate" | "hard" | "expert";
 export type TripSource = "morotur" | "ut" | "osm" | "other";
 
 /**
+ * - route: a described/waymarked hiking route (e.g. an OSM route relation or a Morotur trip)
+ * - trail: a named path, possibly made of several mapped segments
+ * - summit: a named peak – a hiking destination without route data
+ */
+export type TripKind = "route" | "trail" | "summit";
+
+/**
  * Normalised internal trip model. Every provider maps its own data into this
  * shape so the UI never depends on a specific source.
  *
@@ -18,8 +25,11 @@ export type HikingTrip = {
   /** Representative position of the trip (see `positionKind`). */
   latitude: number;
   longitude: number;
-  /** Whether latitude/longitude is the trailhead or only the route's centre. */
-  positionKind: "start" | "center";
+  kind: TripKind;
+  /** Whether latitude/longitude is the trailhead, the route's centre, or the destination itself. */
+  positionKind: "start" | "center" | "destination";
+  /** Height of a summit in metres above sea level, as stated by the source. */
+  summitElevationM?: number;
   /** Length of the route itself in km (not the distance from the user). */
   lengthKm?: number;
   /** True when lengthKm was measured from route geometry rather than stated by the source. */
