@@ -2,7 +2,11 @@
  * Provider registry and nearby-trip search.
  *
  * Status of Norwegian sources (checked November 2026):
- * - OpenStreetMap (Overpass): open data (ODbL), free, CORS-enabled → enabled.
+ * - Pre-built trip data (TileProvider): Kartverket's national trail database
+ *   (Turrutebasen, open data) + OpenStreetMap, built weekly by GitHub Actions and
+ *   served as static files with the site → primary source.
+ * - OpenStreetMap live (Overpass): only used when the pre-built data is missing, and to
+ *   open older shared links (osm-r…/osm-w…/osm-n…). Public Overpass servers are often busy.
  * - UT.no (DNT): its API (api.ut.no) refuses anonymous data queries, and the GraphQL
  *   endpoint used by the ut.no website is an internal proxy, not a public API.
  *   → not used. UT.no pages are still linked when OSM routes reference them.
@@ -15,6 +19,7 @@
 import type { HikingProvider } from "./provider";
 import { DatasetProvider } from "./datasetProvider";
 import { OpenStreetMapProvider } from "./osmProvider";
+import { TileProvider } from "./tileProvider";
 import type { HikingTrip, NearbyTrip } from "@/types/trip";
 import type { LatLon } from "@/types/geo";
 import { calculateDistance } from "@/lib/geo/distance";
@@ -34,7 +39,12 @@ export const UTProvider = new DatasetProvider(
 export const StaticTripProvider = new DatasetProvider("static", "TurNær dataset", "/data/trips.json");
 export const OsmProvider = new OpenStreetMapProvider();
 
-export const providers: HikingProvider[] = [OsmProvider, StaticTripProvider, MoroturProvider, UTProvider];
+export const TripDataProvider = new TileProvider(OsmProvider);
+
+/** Providers searched for nearby trips. */
+export const providers: HikingProvider[] = [TripDataProvider, StaticTripProvider, MoroturProvider, UTProvider];
+/** Providers that can open a trip by id (shared links), including the live OSM fallback. */
+const lookupProviders: HikingProvider[] = [TripDataProvider, OsmProvider, StaticTripProvider, MoroturProvider, UTProvider];
 
 export type NearbyTripsResult = {
   trips: NearbyTrip[];
@@ -45,7 +55,7 @@ export type NearbyTripsResult = {
 function dedupe(trips: HikingTrip[]): HikingTrip[] {
   const seen = new Set<string>();
   return trips.filter((t) => {
-    const key = t.sourceUrl;
+    const key = `${t.sourceUrl}|${t.name}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -111,6 +121,6 @@ export async function getNearbyTrips(
 
 /** Fetch one trip (with route geometry where the provider supports it). */
 export async function getTripById(tripId: string, signal?: AbortSignal): Promise<HikingTrip | null> {
-  const provider = providers.find((p) => p.isEnabled() && p.ownsTrip?.(tripId));
+  const provider = lookupProviders.find((p) => p.isEnabled() && p.ownsTrip?.(tripId));
   return provider?.getTripById ? provider.getTripById(tripId, signal) : null;
 }

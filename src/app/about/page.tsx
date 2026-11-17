@@ -20,6 +20,13 @@ const sources: Source[] = [
     licenceUrl: "https://creativecommons.org/licenses/by/4.0/",
   },
   {
+    name: "Kartverket – national trail database (Turrutebasen)",
+    url: "https://kartkatalog.geonorge.no/metadata/d1422d17-6d95-4ef1-96ab-8af31744dd63",
+    use: "Official hiking routes registered by DNT, local trekking associations, municipalities and others, including names, route numbers, maintainers and difficulty grading. Downloaded weekly from Kartverket's open WFS service; routes link to Norgeskart.",
+    licence: "Open data (NLOD / CC BY 4.0)",
+    licenceUrl: "https://data.norge.no/nlod/no/2.0",
+  },
+  {
     name: "MET Norway (Norwegian Meteorological Institute)",
     url: "https://api.met.no/",
     use: "Weather forecasts from the Locationforecast 2.0 API: temperature, wind, precipitation, fog and weather symbols.",
@@ -29,14 +36,14 @@ const sources: Source[] = [
   {
     name: "OpenStreetMap contributors",
     url: "https://www.openstreetmap.org/copyright",
-    use: "Hiking routes, named trails and summits with their geometry (queried through the Overpass API), and an alternative base map.",
+    use: "Hiking routes, named trails and summits with their geometry (from Geofabrik's weekly Norway extract), and an alternative base map.",
     licence: "ODbL",
     licenceUrl: "https://opendatacommons.org/licenses/odbl/",
   },
   {
     name: "Overpass API",
     url: "https://overpass-api.de/",
-    use: "Public query services (overpass-api.de, with overpass.private.coffee and overpass.kumi.systems as fallbacks) used to read hiking data from OpenStreetMap. Requests are kept small and cached.",
+    use: "Public query services used to read OpenStreetMap data live, only as a fallback when the weekly trip data is unavailable and to open older shared links.",
     licence: "Fair-use policy",
     licenceUrl: "https://wiki.openstreetmap.org/wiki/Overpass_API",
   },

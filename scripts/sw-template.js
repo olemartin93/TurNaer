@@ -80,7 +80,10 @@ self.addEventListener("fetch", (event) => {
 
   if (url.origin === self.location.origin) {
     if (!url.pathname.startsWith(`${BASE}/`) && url.pathname !== BASE) return;
-    if (request.mode === "navigate") {
+    if (url.pathname.startsWith(`${BASE}/data/`)) {
+      // Trip data: network first, keep a copy for offline use (bounded cache).
+      event.respondWith(networkFirst(request, DATA_CACHE));
+    } else if (request.mode === "navigate") {
       event.respondWith(handleNavigation(request));
     } else if (url.pathname.startsWith(`${BASE}/_next/static/`) || url.pathname.startsWith(`${BASE}/icons/`)) {
       event.respondWith(cacheFirst(request));

@@ -8,10 +8,9 @@ It runs entirely in the browser: no backend, no database, no API keys, no analyt
 
 - **Find trips near me**: browser geolocation, requested only when you press the button. Fallbacks: place/address search (Kartverket) or picking a point on the map.
 - **Interactive map** (Leaflet): Kartverket topographic map (default), grey topo, OpenStreetMap, and an optional Waymarked Trails overlay. Clustered trip markers, user location, search radius, a "locate me" control, the selected route with its trailhead, and keyboard support.
-- **Nearby trips** from OpenStreetMap (via Overpass), sorted by approximate straight-line (Haversine) distance. Radius 5/10/25/50/100 km (default 25). Three kinds:
-  - **Routes**: waymarked hiking route relations.
-  - **Trails**: named paths. Segments with the same name that touch are merged into one trip. Most Norwegian hiking paths are mapped this way rather than as route relations.
-  - **Summits**: named peaks as hiking destinations. These have no route data.
+- **Nearby trips**, sorted by approximate straight-line (Haversine) distance. Radius 5/10/25/50/100 km (default 25). They come from a dataset rebuilt weekly from two sources:
+  - **Kartverket's national trail database (Turrutebasen)**: official hiking routes registered by DNT, local trekking associations and municipalities, with names, route numbers, maintainers and the official green/blue/red/black grading.
+  - **OpenStreetMap**: waymarked **routes** (route relations), named **trails** (path segments with the same name are merged), and named **summits** as destinations.
 - **Trip cards**: distance, difficulty, duration, elevation gain, current weather, source and a **View trip** link that opens in a new tab.
 - **Trip detail**: route on the map, trip facts, an **elevation profile** sampled from Kartverket's terrain model, highest and lowest point, ascent, a MET Norway forecast and a weather-condition reading.
 - **Filters** (difficulty, duration, elevation gain, favourites) and **weather-aware ranking**.
@@ -29,7 +28,9 @@ Values TurNær computes itself are marked with **≈**: route length from the ro
 | Kartverket – Høydedata | Elevation profiles (≤ 50 points per request) | `https://ws.geonorge.no/hoydedata/v1/punkt?koordsys=4258&punkter=[[lon,lat],…]` | CC BY 4.0 |
 | Kartverket – WMTS cache | Topographic base maps | `https://cache.kartverket.no/v1/wmts/1.0.0/{topo,topograatone}/default/webmercator/{z}/{y}/{x}.png` | CC BY 4.0 |
 | MET Norway – Locationforecast 2.0 | Weather | `https://api.met.no/weatherapi/locationforecast/2.0/complete` | CC BY 4.0 / NLOD |
-| OpenStreetMap via Overpass | Hiking routes, trails, summits and their geometry | `https://overpass-api.de/api/interpreter`, falling back to `overpass.private.coffee` and `overpass.kumi.systems` | ODbL |
+| Kartverket – Turrutebasen | Official hiking routes and grading (weekly build) | WFS `https://wfs.geonorge.no/skwms1/wfs.turogfriluftsruter`, `typeNames=app:Fotrute` | NLOD / CC BY 4.0 |
+| OpenStreetMap (Geofabrik extract) | Routes, named trails and summits (weekly build) | `https://download.geofabrik.de/europe/norway-latest.osm.pbf` | ODbL |
+| OpenStreetMap via Overpass | Live fallback only (no dataset yet, older shared links) | `https://overpass-api.de/api/interpreter`, then `overpass.private.coffee`, `overpass.kumi.systems` | ODbL |
 | OpenStreetMap tiles | Alternative base map | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | ODbL; tile usage policy |
 | Waymarked Trails | Hiking-trail overlay | `https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png` | CC BY-SA |
 
@@ -41,11 +42,24 @@ Attribution is shown on the map and on the **About & data** page. TurNær is not
 - **Overpass**: one bounding-box query per search, with the query area rounded so nearby searches share the cache. Results are cached for 12 hours; empty results only for 10 minutes. If an instance is busy, the next one is tried. Route geometry is fetched only for the selected trip.
 - **Kartverket**: the elevation API takes at most 50 points per request, so profiles use 100 samples split into 2 requests. Profiles are cached for 30 days.
 
+### Trip data pipeline
+
+The public Overpass servers are often overloaded, so querying them from every visitor's browser is unreliable. Trip data is therefore built ahead of time instead:
+
+1. `.github/workflows/update-data.yml` runs every Monday (and can be started manually under **Actions → Update trip data → Run workflow**).
+2. It downloads Geofabrik's Norway extract, filters it with `osmium` and extracts routes, named trails and summits (`scripts/data/extract_osm.py`).
+3. It downloads Kartverket's trail database cell by cell from the WFS (`scripts/data/fetch-turrutebasen.mjs`). If Kartverket's service is down, the OSM data is still published.
+4. `scripts/data/build-tiles.mjs` merges and de-duplicates the two sources. Kartverket routes are preferred, but keep a Morotur/UT.no link from a matching OSM route. Geometry is simplified, and trips are written as map cells of 0.5° × 1°.
+5. The cells are pushed to the `data` branch, and the site is redeployed. The deploy workflow copies `tiles/` from the `data` branch into `public/data/tiles/`.
+
+At runtime the app loads only the cells around the search area, from the site itself. If no dataset has been published yet, it falls back to live Overpass queries.
+
 ### Hiking-trip sources: status
 
 Checked November 2026:
 
-- **OpenStreetMap**: open data, free, CORS-enabled. **Used** as the primary live source. If a route's `website`/`url` tag points at `morotur.no` or `ut.no`, the card links straight to that page.
+- **Kartverket Turrutebasen**: open data (NLOD), built into the weekly dataset. **Used**. Kartverket has no page per route, so these routes link to Norgeskart at the trailhead, unless a matching OSM route links to Morotur or UT.no.
+- **OpenStreetMap**: open data (ODbL), built into the weekly dataset. **Used**. If a route's `website`/`url` tag points at `morotur.no` or `ut.no`, the card links straight to that page.
 - **UT.no (DNT)**: `api.ut.no` refuses anonymous data queries, and the GraphQL endpoint the ut.no website uses is an internal proxy, not a public API. **Not used** and not scraped.
 - **Morotur**: no documented public, browser-accessible API could be verified. **Not used** and not scraped.
 - **Static datasets**: the adapter architecture lets you add data without code changes (see below).
