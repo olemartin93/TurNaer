@@ -37,6 +37,18 @@ jobs:
           npm run typecheck
           npm run lint
 
+      - name: Add trip data
+        # Static trip data is produced by the "Update trip data" workflow on the `data` branch.
+        # Without it, the app falls back to live OpenStreetMap queries.
+        run: |
+          if git ls-remote --exit-code origin data > /dev/null; then
+            git fetch --depth=1 origin data
+            git archive FETCH_HEAD tiles | tar -x -C public/data
+            echo "Trip data: $(du -sh public/data/tiles | cut -f1)"
+          else
+            echo "No data branch yet – run the 'Update trip data' workflow."
+          fi
+
       - name: Build static site
         run: npm run build
         env:

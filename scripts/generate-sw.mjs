@@ -21,6 +21,8 @@ for (const file of files.sort()) {
   const rel = relative(OUT, file).split(sep).join("/");
   if (rel === "sw.js" || rel.endsWith(".map") || rel === ".nojekyll") continue;
   if (rel === "icons/og-image.png") continue;
+  // Trip data cells are cached on demand (runtime), not all at install.
+  if (rel.startsWith("data/tiles/")) continue;
   hash.update(rel).update(readFileSync(file));
   // Directory index pages are requested as "/path/", not "/path/index.html".
   const urlPath = rel === "index.html" ? "/" : rel.endsWith("/index.html") ? `/${rel.slice(0, -"index.html".length)}` : `/${rel}`;

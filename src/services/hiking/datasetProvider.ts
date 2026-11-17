@@ -16,8 +16,14 @@ import { safeUrl } from "@/lib/trips/parse";
 type DatasetFile = { trips?: Partial<HikingTrip>[] };
 
 const DIFFICULTIES = new Set(["easy", "moderate", "hard", "expert"]);
-const SOURCES = new Set<TripSource>(["morotur", "ut", "osm", "other"]);
-const LABELS: Record<TripSource, string> = { morotur: "Morotur", ut: "UT.no", osm: "OpenStreetMap", other: "External site" };
+const SOURCES = new Set<TripSource>(["morotur", "ut", "osm", "turrutebasen", "other"]);
+const LABELS: Record<TripSource, string> = {
+  morotur: "Morotur",
+  ut: "UT.no",
+  osm: "OpenStreetMap",
+  turrutebasen: "Norgeskart",
+  other: "External site",
+};
 
 function normalise(raw: Partial<HikingTrip>, providerId: string, datasetName: string): HikingTrip | null {
   const sourceUrl = safeUrl(raw.sourceUrl);

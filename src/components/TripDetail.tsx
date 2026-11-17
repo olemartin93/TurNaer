@@ -270,7 +270,7 @@ export function TripDetail({ detail, weather, userLocation, isFavorite, onToggle
         rel="noopener noreferrer"
         className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-pine-700 px-5 text-base font-bold text-white shadow-card hover:bg-pine-800"
       >
-        Open trip on {trip.sourceLabel}
+        {trip.source === "turrutebasen" ? "Show on Norgeskart" : `Open trip on ${trip.sourceLabel}`}
         <ExternalIcon />
         <span className="sr-only">(opens in a new tab)</span>
       </a>
@@ -329,8 +329,13 @@ export function TripDetail({ detail, weather, userLocation, isFavorite, onToggle
             }
             note={trip.estimatedTimeIsCalculated ? "Estimate using Naismith's rule, one direction" : undefined}
           />
+          {trip.marked ? <Row label="Waymarked" value="Yes" note="According to the source" /> : null}
           {trip.network ? <Row label="Network" value={networkLabel(trip.network)} /> : null}
-          <Row label="Source" value={trip.sourceLabel} note={trip.dataProvider !== trip.sourceLabel ? `Data: ${trip.dataProvider}` : undefined} />
+          <Row
+            label="Source"
+            value={trip.source === "turrutebasen" ? "Kartverket" : trip.sourceLabel}
+            note={trip.dataProvider !== trip.sourceLabel ? `Data: ${trip.dataProvider}` : undefined}
+          />
         </dl>
         )}
       </section>

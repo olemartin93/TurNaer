@@ -67,14 +67,16 @@ export function TripCard({ trip, weather, isFavorite, isSelected, onSelect, onTo
         <TripFacts trip={trip} compact />
         <WeatherSummary state={weather} />
         <div className="flex items-center justify-between gap-2 pt-1">
-          <span className="text-xs text-granite-600">Source: {trip.sourceLabel}</span>
+          <span className="text-xs text-granite-600">
+            Source: {trip.source === "turrutebasen" ? "Kartverket" : trip.sourceLabel}
+          </span>
           <a
             href={trip.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="relative z-10 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-pine-700 px-4 text-sm font-semibold text-white hover:bg-pine-800"
           >
-            View trip
+            {trip.source === "turrutebasen" ? "View map" : "View trip"}
             <ExternalIcon />
             <span className="sr-only">on {trip.sourceLabel} (opens in a new tab)</span>
           </a>

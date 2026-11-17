@@ -2,7 +2,7 @@ import type { LineString, MultiLineString } from "geojson";
 
 export type Difficulty = "easy" | "moderate" | "hard" | "expert";
 
-export type TripSource = "morotur" | "ut" | "osm" | "other";
+export type TripSource = "morotur" | "ut" | "osm" | "turrutebasen" | "other";
 
 /**
  * - route: a described/waymarked hiking route (e.g. an OSM route relation or a Morotur trip)
@@ -56,6 +56,8 @@ export type HikingTrip = {
   imageUrl?: string;
   /** Free-form extra facts from the source, shown in the detail view. */
   operator?: string;
+  /** Waymarked in the terrain, according to the source. */
+  marked?: boolean;
   network?: string;
   ref?: string;
 };
